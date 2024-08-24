@@ -151,6 +151,14 @@
                 font-size: 14px;
             }
         }
+
+        .album-card {
+            transition: transform 0.3s ease;
+        }
+
+        .album-card:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 
@@ -188,8 +196,13 @@
 
         <div class="album py-5 bg-light">
             <div class="container">
+                <div class="row">
+                    <div class="col-md-12" id="collection-heading">
+                        <span>My Collection</span>
+                    </div>
+                </div>
                 <div class="row" id="albumContainer">
-                    <!-- Albuns serão adicionados aqui dinamicamente -->
+                    <!-- Álbum será adicionado aqui dinamicamente -->
                 </div>
             </div>
         </div>
@@ -232,7 +245,6 @@
                 </div>
                 <div class="modal-body">
                     <form id="addCardForm" enctype="multipart/form-data">
-                        <input type="hidden" id="cardAlbumId">
                         <div id="previewImageContainer">
                             <img id="previewImage" src="" alt="Preview Image">
                         </div>
@@ -244,8 +256,34 @@
                             <label for="cardDescription">Descrição</label>
                             <textarea class="form-control" id="cardDescription" name="description" rows="3" required></textarea>
                         </div>
+                        <div class="form-group">
+                            <label for="cardAlbum">Álbum</label>
+                            <select class="form-control" id="cardAlbum" name="album" required>
+                                <!-- Álbuns serão adicionados aqui dinamicamente -->
+                            </select>
+                        </div>
                         <button type="submit" class="btn btn-primary">Adicionar Card</button>
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" role="dialog" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirmação de Exclusão</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Você tem certeza de que deseja excluir este item?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteButton">Excluir</button>
                 </div>
             </div>
         </div>
@@ -263,30 +301,11 @@
         </div>
     </div>
 
-    <div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="confirmDeleteModalLabel">Confirmar Exclusão</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <p>Tem certeza de que deseja excluir este item?</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteButton">Excluir</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="bottom-bar">
         <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addAlbumModal">
             <i class="fa fa-plus"></i>
         </button>
+        <button type="button" class="btn btn-secondary" id="resizeAlbumsButton">Reduzir Álbuns</button>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
@@ -297,38 +316,70 @@
         $(document).ready(function() {
             function loadAlbums() {
                 let albums = JSON.parse(localStorage.getItem('albums')) || [];
-                albums.forEach(album => addAlbumToDOM(album));
+                $('#albumContainer').empty();
+                albums.forEach(album => {
+                    const albumHTML = `
+                        <div class="col-md-4">
+                            <div class="card album-card mb-4 shadow-sm" data-album="${album.name}">
+                                <div class="card-body">
+                                    <h5 class="card-title">${album.name}</h5>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deleteAlbum('${album.name}')">Excluir Álbum</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resizeAlbum(this)">Aumentar Álbum</button>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row" data-album="${album.name}" id="album-${album.name}">
+                                        <!-- Cards serão adicionados aqui dinamicamente -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    $('#albumContainer').append(albumHTML);
+                });
             }
 
             function loadCards() {
+                let cards = JSON.parse(localStorage.getItem('cards')) || [];
                 let albums = JSON.parse(localStorage.getItem('albums')) || [];
-                albums.forEach(album => {
-                    album.cards.forEach(card => addCardToDOM(album.id, card));
+
+                cards.forEach(card => {
+                    const album = albums.find(a => a.name === card.album);
+                    if (album) {
+                        const cardHTML = `
+                            <div class="col-md-4">
+                                <div class="card mb-4 shadow-sm">
+                                    <img class="card-img-top" src="${card.image}" alt="Card image cap" onclick="showImage('${card.image}')">
+                                    <div class="card-body">
+                                        <p class="card-text">${card.description}</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeCard(this)">Eliminar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        $(`#album-${card.album}`).append(cardHTML);
+                    }
                 });
             }
 
             $('#addAlbumForm').on('submit', function(e) {
                 e.preventDefault();
-                const name = $('#albumName').val();
-                const album = {
-                    id: Date.now(),
-                    name: name,
-                    cards: []
-                };
-
+                const albumName = $('#albumName').val();
                 let albums = JSON.parse(localStorage.getItem('albums')) || [];
-                albums.push(album);
-                localStorage.setItem('albums', JSON.stringify(albums));
-
-                addAlbumToDOM(album);
-                $('#addAlbumModal').modal('hide');
+                if (!albums.find(album => album.name === albumName)) {
+                    albums.push({ name: albumName });
+                    localStorage.setItem('albums', JSON.stringify(albums));
+                    loadAlbums();
+                    $('#addAlbumModal').modal('hide');
+                }
             });
 
             $('#addCardForm').on('submit', function(e) {
                 e.preventDefault();
                 const fileInput = $('#cardImage')[0];
                 const description = $('#cardDescription').val();
-                const albumId = $('#cardAlbumId').val();
+                const albumName = $('#cardAlbum').val();
 
                 if (fileInput.files && fileInput.files[0]) {
                     const reader = new FileReader();
@@ -336,17 +387,17 @@
                         const imgSrc = e.target.result;
                         const card = {
                             image: imgSrc,
-                            description: description
+                            description: description,
+                            album: albumName
                         };
 
-                        let albums = JSON.parse(localStorage.getItem('albums')) || [];
-                        let album = albums.find(a => a.id == albumId);
-                        if (album) {
-                            album.cards.push(card);
-                            localStorage.setItem('albums', JSON.stringify(albums));
-                            addCardToDOM(albumId, card);
-                        }
+                        let cards = JSON.parse(localStorage.getItem('cards')) || [];
+                        cards.push(card);
+                        localStorage.setItem('cards', JSON.stringify(cards));
+
+                        addCardToDOM(card);
                         $('#addCardModal').modal('hide');
+                        location.reload();
                     };
                     reader.readAsDataURL(fileInput.files[0]);
                 }
@@ -365,54 +416,7 @@
                 }
             });
 
-            window.showImage = function(imageUrl) {
-                $('#modalImage').attr('src', imageUrl);
-                $('#imageModalTemplate').modal('show');
-                $('#imageModalTemplate').on('shown.bs.modal', function() {
-                    Panzoom(document.getElementById('modalImage'), {
-                        maxScale: 5,
-                        minScale: 1,
-                        contain: 'outside'
-                    });
-                });
-            };
-
-            window.removeCard = function(button, albumId) {
-                $('#confirmDeleteModal').modal('show');
-                $('#confirmDeleteButton').off('click').on('click', function() {
-                    $(button).closest('.col-md-4').remove();
-                    let albums = JSON.parse(localStorage.getItem('albums')) || [];
-                    let album = albums.find(a => a.id == albumId);
-                    if (album) {
-                        const imgSrc = $(button).closest('.card').find('img').attr('src');
-                        album.cards = album.cards.filter(card => card.image !== imgSrc);
-                        localStorage.setItem('albums', JSON.stringify(albums));
-                    }
-                    $('#confirmDeleteModal').modal('hide');
-                });
-            };
-
-            function addAlbumToDOM(album) {
-                const albumHTML = `
-                    <div class="col-md-4 mb-4">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <h5 class="card-title">${album.name}</h5>
-                                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addCardModal" onclick="$('#cardAlbumId').val(${album.id})">
-                                    Adicionar Card
-                                </button>
-                                <div class="row" id="album-${album.id}">
-                                    <!-- Cards serão adicionados aqui dinamicamente -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                $('#albumContainer').append(albumHTML);
-                loadCards();
-            }
-
-            function addCardToDOM(albumId, card) {
+            function addCardToDOM(card) {
                 const cardHTML = `
                     <div class="col-md-4">
                         <div class="card mb-4 shadow-sm">
@@ -420,20 +424,63 @@
                             <div class="card-body">
                                 <p class="card-text">${card.description}</p>
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeCard(this, ${albumId})">Eliminar</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeCard(this)">Eliminar</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 `;
-                $(`#album-${albumId}`).append(cardHTML);
+                $(`#album-${card.album}`).append(cardHTML);
             }
 
-            loadAlbums();
+            function deleteAlbum(albumName) {
+                $('#deleteConfirmationModal').modal('show');
+                $('#confirmDeleteButton').off('click').on('click', function() {
+                    let albums = JSON.parse(localStorage.getItem('albums')) || [];
+                    albums = albums.filter(album => album.name !== albumName);
+                    localStorage.setItem('albums', JSON.stringify(albums));
 
-            $('#confirmDeleteButton').on('click', function() {
-                $('#confirmDeleteModal').modal('hide');
+                    let cards = JSON.parse(localStorage.getItem('cards')) || [];
+                    cards = cards.filter(card => card.album !== albumName);
+                    localStorage.setItem('cards', JSON.stringify(cards));
+
+                    loadAlbums();
+                    $('#deleteConfirmationModal').modal('hide');
+                });
+            }
+
+            function removeCard(button) {
+                $('#deleteConfirmationModal').modal('show');
+                $('#confirmDeleteButton').off('click').on('click', function() {
+                    $(button).closest('.col-md-4').remove();
+                    let cards = JSON.parse(localStorage.getItem('cards')) || [];
+                    const imgSrc = $(// Continuando o código
+                    const imgSrc = $(button).closest('.card').find('img').attr('src');
+                    let cards = JSON.parse(localStorage.getItem('cards')) || [];
+                    cards = cards.filter(card => card.image !== imgSrc);
+                    localStorage.setItem('cards', JSON.stringify(cards));
+                    $('#deleteConfirmationModal').modal('hide');
+                });
+            }
+
+            function showImage(imgSrc) {
+                $('#modalImage').attr('src', imgSrc);
+                $('#imageModalTemplate').modal('show');
+                panzoom(document.querySelector('#imageContainer'));
+            }
+
+            $('#resizeAlbumsButton').on('click', function() {
+                $('.album-card').toggleClass('small');
+                if ($('.album-card').hasClass('small')) {
+                    $('.album-card').css({ width: '150px', height: '150px' });
+                } else {
+                    $('.album-card').css({ width: '300px', height: '300px' });
+                }
             });
+
+            // Carregar álbuns e cards ao iniciar
+            loadAlbums();
+            loadCards();
         });
     </script>
 </body>
