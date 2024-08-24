@@ -193,8 +193,8 @@
                         <span>My Collection</span>
                     </div>
                 </div>
-                <div class="row" id="albumContainer">
-                    <!-- Albums serão adicionados aqui dinamicamente -->
+                <div class="row" id="albumsContainer">
+                    <!-- Álbuns serão adicionados aqui dinamicamente -->
                 </div>
             </div>
         </div>
@@ -204,6 +204,7 @@
         </a>
     </main>
 
+    <!-- Modal para adicionar novo álbum -->
     <div class="modal fade" id="addAlbumModal" tabindex="-1" role="dialog" aria-labelledby="addAlbumModalLabel" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -217,7 +218,7 @@
                     <form id="addAlbumForm">
                         <div class="form-group">
                             <label for="albumName">Nome do Álbum</label>
-                            <input type="text" class="form-control" id="albumName" name="albumName" required>
+                            <input type="text" class="form-control" id="albumName" required>
                         </div>
                         <button type="submit" class="btn btn-primary">Adicionar Álbum</button>
                     </form>
@@ -226,6 +227,7 @@
         </div>
     </div>
 
+    <!-- Modal para adicionar novo card -->
     <div class="modal fade" id="addCardModal" tabindex="-1" role="dialog" aria-labelledby="addCardModalLabel" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -236,18 +238,20 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <form id="addCardForm" enctype="multipart/form-data">
-                        <div id="previewImageContainer">
-                            <img id="previewImage" src="" alt="Preview Image">
+                    <form id="addCardForm">
+                        <div class="form-group">
+                            <label for="cardTitle">Título do Card</label>
+                            <input type="text" class="form-control" id="cardTitle" required>
                         </div>
                         <div class="form-group">
-                            <label for="cardImage">Imagem</label>
-                            <input type="file" class="form-control-file" id="cardImage" name="cardImage" accept="image/*" required onchange="previewFile()">
+                            <label for="cardImage">URL da Imagem</label>
+                            <input type="url" class="form-control" id="cardImage" required>
                         </div>
                         <div class="form-group">
                             <label for="cardDescription">Descrição</label>
-                            <textarea class="form-control" id="cardDescription" name="cardDescription" rows="3" required></textarea>
+                            <textarea class="form-control" id="cardDescription" rows="3" required></textarea>
                         </div>
+                        <input type="hidden" id="cardAlbumId">
                         <button type="submit" class="btn btn-primary">Adicionar Card</button>
                     </form>
                 </div>
@@ -255,108 +259,122 @@
         </div>
     </div>
 
+    <!-- Barra inferior fixa para adicionar álbum -->
     <div class="bottom-bar">
-        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addAlbumModal">
-            Adicionar Álbum
-        </button>
+        <button type="button" data-toggle="modal" data-target="#addAlbumModal">Adicionar Novo Álbum</button>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            loadAlbums();
+
+            // Evento para adicionar novo álbum
+            document.getElementById('addAlbumForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                const albumName = document.getElementById('albumName').value;
+                addAlbum(albumName);
+                document.getElementById('albumName').value = '';
+                $('#addAlbumModal').modal('hide');
+            });
+
+            // Evento para adicionar novo card
+            document.getElementById('addCardForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                const albumId = document.getElementById('cardAlbumId').value;
+                const cardTitle = document.getElementById('cardTitle').value;
+                const cardImage = document.getElementById('cardImage').value;
+                const cardDescription = document.getElementById('cardDescription').value;
+                addCard(albumId, cardTitle, cardImage, cardDescription);
+                document.getElementById('cardTitle').value = '';
+                document.getElementById('cardImage').value = '';
+                document.getElementById('cardDescription').value = '';
+                $('#addCardModal').modal('hide');
+            });
+        });
+
+        function loadAlbums() {
+            const albums = JSON.parse(localStorage.getItem('albums')) || [];
+            const albumsContainer = document.getElementById('albumsContainer');
+            albumsContainer.innerHTML = '';
+
+            albums.forEach((album, index) => {
+                const albumElement = document.createElement('div');
+                albumElement.classList.add('col-md-4');
+                albumElement.innerHTML = `
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">${album.name}</h5>
+                            <button class="btn btn-sm btn-outline-primary" onclick="showAddCardModal(${index})">Adicionar Card</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteAlbum(${index})">Excluir Álbum</button>
+                        </div>
+                        <div id="album-${index}" class="album-cards">
+                            <!-- Cards serão adicionados aqui dinamicamente -->
+                        </div>
+                    </div>
+                `;
+                albumsContainer.appendChild(albumElement);
+                loadCards(index);
+            });
+        }
+
+        function loadCards(albumIndex) {
+            const albums = JSON.parse(localStorage.getItem('albums')) || [];
+            const album = albums[albumIndex];
+            const albumElement = document.getElementById(`album-${albumIndex}`);
+            albumElement.innerHTML = '';
+
+            album.cards.forEach((card, cardIndex) => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('card', 'mb-4', 'shadow-sm');
+                cardElement.innerHTML = `
+                    <img src="${card.image}" class="card-img-top" alt="${card.title}">
+                    <div class="card-body">
+                        <h5 class="card-title">${card.title}</h5>
+                        <p class="card-text">${card.description}</p>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCard(${albumIndex}, ${cardIndex})">Excluir Card</button>
+                    </div>
+                `;
+                albumElement.appendChild(cardElement);
+            });
+        }
+
+        function addAlbum(name) {
+            const albums = JSON.parse(localStorage.getItem('albums')) || [];
+            albums.push({ name: name, cards: [] });
+            localStorage.setItem('albums', JSON.stringify(albums));
+            loadAlbums();
+        }
+
+        function deleteAlbum(index) {
+            const albums = JSON.parse(localStorage.getItem('albums')) || [];
+            albums.splice(index, 1);
+            localStorage.setItem('albums', JSON.stringify(albums));
+            loadAlbums();
+        }
+
+        function addCard(albumIndex, title, image, description) {
+            const albums = JSON.parse(localStorage.getItem('albums')) || [];
+            albums[albumIndex].cards.push({ title: title, image: image, description: description });
+            localStorage.setItem('albums', JSON.stringify(albums));
+            loadAlbums();
+        }
+
+        function deleteCard(albumIndex, cardIndex) {
+            const albums = JSON.parse(localStorage.getItem('albums')) || [];
+            albums[albumIndex].cards.splice(cardIndex, 1);
+            localStorage.setItem('albums', JSON.stringify(albums));
+            loadAlbums();
+        }
+
+        function showAddCardModal(albumIndex) {
+            document.getElementById('cardAlbumId').value = albumIndex;
+            $('#addCardModal').modal('show');
+        }
+    </script>
 
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script>
-        let albums = [];
-
-        function previewFile() {
-            const preview = document.getElementById('previewImage');
-            const file = document.getElementById('cardImage').files[0];
-            const reader = new FileReader();
-
-            reader.addEventListener("load", function () {
-                preview.src = reader.result;
-                preview.style.display = 'block';
-            }, false);
-
-            if (file) {
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function createAlbum(name) {
-            const album = {
-                name: name,
-                cards: []
-            };
-            albums.push(album);
-            renderAlbums();
-        }
-
-        function addCardToAlbum(albumIndex, imageSrc, description) {
-            const card = {
-                imageSrc: imageSrc,
-                description: description
-            };
-            albums[albumIndex].cards.push(card);
-            renderAlbums();
-        }
-
-        function renderAlbums() {
-            const albumContainer = document.getElementById('albumContainer');
-            albumContainer.innerHTML = '';
-            albums.forEach((album, albumIndex) => {
-                const albumElement = document.createElement('div');
-                albumElement.className = 'col-md-4';
-                albumElement.innerHTML = `
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header">
-                            <h4>${album.name}</h4>
-                        </div>
-                        <div class="card-body">
-                            ${album.cards.map(card => `
-                                <div class="mb-4">
-                                    <img src="${card.imageSrc}" alt="Card image" class="img-fluid">
-                                    <p class="card-text">${card.description}</p>
-                                </div>
-                            `).join('')}
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openAddCardModal(${albumIndex})">
-                                Adicionar Card
-                            </button>
-                        </div>
-                    </div>
-                `;
-                albumContainer.appendChild(albumElement);
-            });
-        }
-
-        function openAddCardModal(albumIndex) {
-            $('#addCardModal').modal('show');
-            document.getElementById('addCardForm').onsubmit = function (event) {
-                event.preventDefault();
-                const imageInput = document.getElementById('cardImage');
-                const descriptionInput = document.getElementById('cardDescription');
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    addCardToAlbum(albumIndex, e.target.result, descriptionInput.value);
-                    $('#addCardModal').modal('hide');
-                    document.getElementById('addCardForm').reset();
-                    document.getElementById('previewImage').style.display = 'none';
-                };
-                reader.readAsDataURL(imageInput.files[0]);
-            };
-        }
-
-        document.getElementById('addAlbumForm').onsubmit = function (event) {
-            event.preventDefault();
-            const albumNameInput = document.getElementById('albumName');
-            createAlbum(albumNameInput.value);
-            $('#addAlbumModal').modal('hide');
-            document.getElementById('addAlbumForm').reset();
-        };
-
-        $(document).ready(function () {
-            renderAlbums();
-        });
-    </script>
 </body>
 
 </html>
